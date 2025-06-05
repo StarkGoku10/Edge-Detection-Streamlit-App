@@ -178,13 +178,19 @@ if st.session_state.get('show_blur', False):
         img_to_save = img_to_save.convert("RGB")
     img_to_save.save(temp_path)
 
-    results = process_image(temp_path)
-    st.session_state.processed_results = results
-    st.session_state.has_processed = True
-    if os.path.exists(temp_path):
-        os.remove(temp_path)
-    st.session_state.show_blur = False
-    st.rerun()
+    try:
+        results = process_image(temp_path)
+        st.session_state.processed_results = results
+        st.session_state.has_processed = True
+    except Exception as e:
+        st.error(f"An error occurred: {e}")
+        import traceback
+        st.text(traceback.format_exc())
+    finally:
+        if os.path.exists(temp_path):
+            os.remove(temp_path)
+        st.session_state.show_blur = False
+        st.rerun()
 
 # Display results if they exist
 if st.session_state.processed_results is not None:
