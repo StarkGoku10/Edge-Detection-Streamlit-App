@@ -8,6 +8,7 @@ import base64
 import requests
 from edge_detection import process_image
 import matplotlib.pyplot as plt
+import uuid
 
 def get_image_base64(img_array):
     img = Image.fromarray(img_array)
@@ -170,7 +171,8 @@ if st.session_state.get('show_blur', False):
     image = st.session_state.uploaded_image
     temp_dir = "temp"
     os.makedirs(temp_dir, exist_ok=True)
-    temp_path = os.path.join(temp_dir, "temp_image.jpg")
+    unique_id = str(uuid.uuid4())
+    temp_path = os.path.join(temp_dir, f"temp_image_{unique_id}.jpg")
     img_to_save = Image.fromarray(image)
     if img_to_save.mode == "RGBA":
         img_to_save = img_to_save.convert("RGB")
