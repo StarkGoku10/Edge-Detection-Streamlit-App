@@ -1,6 +1,6 @@
 # PB-Lite Algorithm for Edge Detection on Streamlit
 
-![PB-Lite Banner](results/barcelona.png)
+![PB-Lite Banner](Images/Results/barcelona.png)
 
 ## Overview
 
@@ -85,12 +85,12 @@ Here are some example results showcasing the edge detection capabilities of our 
 
 | Original Image | Edge Detection Result | Description |
 |---------------|----------------------|-------------|
-| ![Temple](results/temple.png) | ![Temple Edges](results/temple.png) | Ancient temple architecture with detailed structural edges |
-| ![Goudi](results/goudi.png) | ![Goudi Edges](results/goudi.png) | Modern architectural elements with complex geometric patterns |
-| ![Barcelona](results/barcelona.png) | ![Barcelona Edges](results/barcelona.png) | Urban landscape with natural and man-made boundaries |
-| ![Tiger](results/Tiger.png) | ![Tiger Edges](results/Tiger.png) | Wildlife image demonstrating natural edge detection |
-| ![McLaren](results/mclaren.png) | ![McLaren Edges](results/mclaren.png) | Automotive design with smooth curves and sharp edges |
-| ![Mouse](results/mouse.png) | ![Mouse Edges](results/mouse.png) | Small object with fine details and texture |
+| ![Temple](Images/Original%20Images/temple.jpg) | ![Temple Edges](Images/Results/temple.png) | Ancient temple architecture with detailed structural edges |
+| ![Goudi](Images/Original%20Images/Church.jpg) | ![Goudi Edges](Images/Results/goudi.png) | Modern architectural elements with complex geometric patterns |
+| ![Barcelona](Images/Original%20Images/barcelona.jpg) | ![Barcelona Edges](Images/Results/barcelona.png) | Urban landscape with natural and man-made boundaries |
+| ![Tiger](Images/Results/Tiger.png) | ![Tiger Edges](Images/Results/Tiger.png) | Wildlife image demonstrating natural edge detection |
+| ![McLaren](Images/Original%20Images/mclaren.jpg) | ![McLaren Edges](Images/Results/mclaren.png) | Automotive design with smooth curves and sharp edges |
+| ![Mouse](Images/Original%20Images/mouse.jpg) | ![Mouse Edges](Images/Results/mouse.png) | Small object with fine details and texture |
 
 The edge detection algorithm successfully identifies:
 - Strong structural boundaries in architectural images
