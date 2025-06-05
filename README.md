@@ -50,7 +50,7 @@ Ensure you have Python 3.8 or later installed. Install additional dependencies l
 
 1. **Clone this repository**:
    ```bash
-   git clone https://github.com/StarkGoku10/Pb_lite_Edgedetection.git
+   git clone https://github.com/StarkGoku10/Edge-Detection-Streamlit-App.git
    cd pb_lite_edgedetection
    ```
 
