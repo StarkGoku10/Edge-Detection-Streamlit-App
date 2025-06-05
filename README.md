@@ -1,5 +1,7 @@
 # PB-Lite Algorithm for Edge Detection on Streamlit
 
+Check out the web application at the following URL: '[Edge Detection using Pb-lite (Probability of Boundary) Algorithm)](https://edge-detection-using-pblite.streamlit.app/)'
+
 ![PB-Lite Banner](Images/Results/barcelona.png)
 
 ## Overview
