@@ -1,24 +1,38 @@
 import streamlit as st
 import numpy as np
-import cv2
 from PIL import Image
 import io
 import os
 import base64
 import requests
-from edge_detection import process_image
-import matplotlib.pyplot as plt
-import uuid
+import time
+from edge_detection import process_image 
+import uuid # For generating unique filenames
 
-def get_image_base64(img_array):
-    img = Image.fromarray(img_array)
-    if img.mode=="RGBA":
+LOCK_FILE_PATH = "app.lock"
+
+def get_image_base64(img_array_or_pil_img):
+    """Converts a NumPy array or PIL Image to a base64 encoded JPEG string."""
+    if isinstance(img_array_or_pil_img, np.ndarray):
+        img = Image.fromarray(img_array_or_pil_img.astype(np.uint8))
+    elif isinstance(img_array_or_pil_img, Image.Image):
+        img = img_array_or_pil_img
+    else:
+        raise ValueError("Input must be a NumPy array or PIL Image.")
+
+    if img.mode == "RGBA":
+        # Ensure it's RGB for JPEG
         img = img.convert("RGB")
+    elif img.mode == "L": # Grayscale
+        # Convert to RGB if it's grayscale for consistent display
+        img = img.convert("RGB")
+
     buffered = io.BytesIO()
     img.save(buffered, format="JPEG")
     return base64.b64encode(buffered.getvalue()).decode()
 
 def show_blur_overlay():
+    """Displays a processing overlay with a spinner."""
     st.markdown(
         """
         <style>
@@ -27,7 +41,8 @@ def show_blur_overlay():
             top: 0; left: 0; right: 0; bottom: 0;
             width: 100vw; height: 100vh;
             background: rgba(30, 30, 30, 0.5);
-            backdrop-filter: blur(8px);
+            backdrop-filter: blur(8px); /* Standard blur */
+            -webkit-backdrop-filter: blur(8px); /* Safari */
             z-index: 9999;
             display: flex;
             flex-direction: column;
@@ -52,13 +67,13 @@ def show_blur_overlay():
         .processing-text {
             color: #fff;
             font-size: 1.3em;
-            font-family: 'Fira Mono', 'Consolas', monospace;
+            font-family: 'Fira Mono', 'Consolas', monospace; /* Monospaced font for dots */
             margin: 0 auto;
             letter-spacing: .10em;
             display: flex;
             align-items: center;
         }
-        .dot {
+        .dot { /* Animated dots for processing text */
             opacity: 0;
             animation: blink 1.2s infinite;
         }
@@ -80,168 +95,287 @@ def show_blur_overlay():
         unsafe_allow_html=True
     )
 
-st.set_page_config(page_title="Edge Detection", layout="wide")
+# --- App Initialization ---
+st.set_page_config(page_title="Edge Detection Pro", layout="wide")
 
-# Add custom CSS to control image sizes
+# Custom CSS for image display and layout
 st.markdown("""
     <style>
-    .stImage {
-        max-width: 100%;
-        height: auto;
+    /* Ensure Streamlit images are responsive */
+    .stImage > img {
+        max-width: 100%; /* Ensure images scale down */
+        height: auto;    /* Maintain aspect ratio */
+        object-fit: contain; /* Ensure the whole image is visible */
+        border-radius: 8px; /* Slightly rounded corners for images */
     }
-    .uploaded-image {
-        max-width: 600px;
-        margin: 0 auto;
+    .uploaded-image-container, .result-image-container {
+        display: flex;
+        justify-content: center; /* Center images horizontally */
+        align-items: center;     /* Center images vertically if needed */
+        padding: 10px;
     }
-    .result-image {
-        max-width: 600px;
-        margin: 0 auto;
+    .uploaded-image-container img, .result-image-container img {
+        max-width: 500px; /* Max width for uploaded/result images */
+        max-height: 500px; /* Max height to prevent overly large images */
+        border: 1px solid #ddd; /* Subtle border */
+    }
+    .main-title { /* Custom title style */
+        text-align: center;
+        color: #2c3e50; /* Darker color */
+        padding-bottom: 10px;
+        border-bottom: 2px solid #3498db; /* Accent color border */
+    }
+    .section-header { /* Style for subheaders */
+        color: #34495e;
+        margin-top: 20px;
+        margin-bottom: 10px;
+    }
+    /* Style for the button */
+    div.stButton > button {
+        border-radius: 20px; /* More rounded buttons */
+        padding: 10px 20px;
     }
     </style>
 """, unsafe_allow_html=True)
 
-st.title("Edge Detection using Pb-lite")
+st.markdown("<h1 class='main-title'>Edge Detection using Pb-lite Algorithm</h1>", unsafe_allow_html=True)
 st.markdown("---")
 
-# Add a session state variable for the uploader key
+# Initialize session state variables
 if 'uploader_key' not in st.session_state:
     st.session_state.uploader_key = 0
-# Add a session state variable to track if an image has been processed
 if 'has_processed' not in st.session_state:
     st.session_state.has_processed = False
-
-# File uploader
-uploaded_file = None
-if not st.session_state.has_processed or st.session_state.processed_results is None:
-    st.markdown("#### Choose any image of your choice to get started")
-    uploaded_file = st.file_uploader("Image Upload", type=["jpg", "jpeg", "png", "webp"], key=st.session_state.uploader_key, label_visibility="collapsed")
-
-# Add a text input for image URL
-image_url = None
-if not st.session_state.has_processed or st.session_state.processed_results is None:
-    st.markdown("#### Or paste an image URL")
-    image_url = st.text_input("Image URL", placeholder="Enter URL (jpg, jpeg, png, webp)", label_visibility="collapsed")
-
-# Initialize session state for storing the uploaded image and overlay state
-if 'uploaded_image' not in st.session_state:
-    st.session_state.uploaded_image = None
+if 'uploaded_image_data' not in st.session_state: # To store the PIL Image object
+    st.session_state.uploaded_image_data = None
 if 'processed_results' not in st.session_state:
     st.session_state.processed_results = None
 if 'show_blur' not in st.session_state:
     st.session_state.show_blur = False
+if 'error_message' not in st.session_state:
+    st.session_state.error_message = None
 
-# Store the uploaded image in session state
-image = None
-if uploaded_file is not None:
-    image = Image.open(uploaded_file)
-elif image_url:
-    try:
-        response = requests.get(image_url)
-        response.raise_for_status()
-        image = Image.open(io.BytesIO(response.content))
-    except Exception as e:
-        st.error(f"Could not load image from URL: {e}")
 
-if image is not None:
-    image = np.array(image)
-    st.session_state.uploaded_image = image
+# --- Image Input Section ---
+if not st.session_state.has_processed:
+    st.markdown("<h4 class='section-header'>Upload an Image or Provide a URL to get started</h4>", unsafe_allow_html=True)
+    st.markdown("---")
     
-    if st.session_state.processed_results is None:
-        img_base64 = get_image_base64(image)
-        st.markdown(
-            f'''
-            <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; min-height: 60vh;">
-                <h3 style="margin-bottom: 20px;">Uploaded Image</h3>
-                <img src="data:image/jpeg;base64,{img_base64}" width="600" height="400" style="border-radius: 10px; object-fit: cover; margin-bottom: 20px;" />
-            </div>
-            ''',
-            unsafe_allow_html=True
-        )
-        # Center the button using columns
-        button_col1, button_col2, button_col3 = st.columns([4, 1, 4])
-        with button_col2:
-            if st.button("Process Image", type="primary", use_container_width=True):
-                st.session_state.show_blur = True
-                st.rerun()
+    st.markdown("<p class='input-label'>Browse files</p>", unsafe_allow_html=True)
+    uploaded_file = st.file_uploader(
+        "### Browse files",
+        type=["jpg", "jpeg", "png", "webp"],
+        key=f"uploader_{st.session_state.uploader_key}",
+        label_visibility="collapsed" # Unique key for reset
+    )
+    
+    st.markdown("<p style='text-align: center; margin: 0;'> or</p>", unsafe_allow_html=True)
+    st.markdown("<p class='input-label'>Enter URL</p>", unsafe_allow_html=True)
+    image_url = st.text_input(
+        "Enter URL",
+        placeholder="https://worldarchitecture.org/cdnimgfiles/extuploadc/lotustemple16b-1-.jpg",
+        label_visibility="collapsed",
+    )
+    
+    pil_image = None
+    if uploaded_file is not None:
+        try:
+            pil_image = Image.open(uploaded_file)
+            # Clear previous errors
+            st.session_state.error_message = None 
+        except Exception as e:
+            st.error(f"Error opening uploaded file: {e}")
+            st.session_state.error_message = f"Could not load image from uploaded file: {e}"
+            pil_image = None
+            
+    elif image_url:
+        try:
+            # Added timeout to handle slow responses
+            response = requests.get(image_url, timeout=10)
+            # Raises an HTTPError for bad responses (4XX or 5XX)
+            response.raise_for_status() 
+            pil_image = Image.open(io.BytesIO(response.content))
+            # Clear previous errors
+            st.session_state.error_message = None 
+        except requests.exceptions.RequestException as e:
+            st.error(f"Error fetching image from URL: {e}")
+            st.session_state.error_message = f"Could not load image from URL: {e}"
+            pil_image = None
+            # Catch other PIL errors
+        except Exception as e: 
+            st.error(f"Error opening image from URL: {e}")
+            st.session_state.error_message = f"Could not process image from URL: {e}"
+            pil_image = None
 
-# Show the blur overlay and process the image if requested
-if st.session_state.get('show_blur', False):
+    if pil_image is not None:
+        st.session_state.uploaded_image_data = pil_image # Store PIL image
+        
+        # Display uploaded image preview
+        st.markdown("<h3 class='section-header' style='text-align: center;'>Uploaded Image Preview</h3>", unsafe_allow_html=True)
+        # Ensure RGB for display
+        img_array_for_display = np.array(pil_image.convert("RGB")) 
+        # center the image and button
+        prev_col1, prev_col_main, prev_col3 = st.columns([1,2,1])
+        with prev_col_main:
+            st.image(img_array_for_display, use_container_width=True, caption="Your Uploaded Image")
+
+            # lock check mechanism & check if a process is already running
+            is_locked = os.path.exists(LOCK_FILE_PATH)
+            if is_locked:
+                # check for stale lock file older than 5 minutes
+                try:  
+                    if (time.time() - os.path.getmtime(LOCK_FILE_PATH)) > 300:
+                        os.remove(LOCK_FILE_PATH)
+                        is_locked=False
+                except FileNotFoundError:
+                    is_locked = False 
+
+            if is_locked:
+                st.warning("⏳ The Magic Wand✨ is currently in use! Please hold on, your patience will be rewarded. 🙏")
+                if st.button("🔄 Check if it is your turn to create Magic"):
+                    st.rerun()
+            else:
+                if st.button("✨ Unveil the Edges!", type="primary", use_container_width=True):
+                    st.session_state.show_blur = True
+                    # Clear previous errors before processing
+                    st.session_state.error_message = None 
+                    st.rerun()
+
+# --- Processing Logic ---
+if st.session_state.get('show_blur', False) and st.session_state.uploaded_image_data is not None:
+    # creation of a lock file to signal that the process is running/has started
+    with open(LOCK_FILE_PATH, "w") as f:
+        f.write(str(int(time.time())))
     show_blur_overlay()
-    # Actually process the image
-    image = st.session_state.uploaded_image
-    temp_dir = "temp"
+    
+    # temporary directory if it doesn't exist
+    temp_dir = "temp_streamlit_images" 
     os.makedirs(temp_dir, exist_ok=True)
-    unique_id = str(uuid.uuid4())
-    temp_path = os.path.join(temp_dir, f"temp_image_{unique_id}.jpg")
-    img_to_save = Image.fromarray(image)
-    if img_to_save.mode == "RGBA":
-        img_to_save = img_to_save.convert("RGB")
-    img_to_save.save(temp_path)
-
+    
+    # unique filename for the temporary image
+    unique_filename = f"{uuid.uuid4()}.jpg"
+    temp_path = os.path.join(temp_dir, unique_filename)
+    
+    processing_success = False
     try:
-        results = process_image(temp_path)
+        # Save the PIL image to the temporary path
+        # Convert to RGB before saving to ensure compatibility with process_image if it expects 3 channels
+        img_to_save = st.session_state.uploaded_image_data.convert("RGB")
+        img_to_save.save(temp_path, format="JPEG")
+
+        # Call the image processing function
+        results = process_image(temp_path) # process_image expects a path
         st.session_state.processed_results = results
         st.session_state.has_processed = True
+        processing_success = True
+        # Clear error on success
+        st.session_state.error_message = None 
+        
     except Exception as e:
-        st.error(f"An error occurred: {e}")
-        import traceback
-        st.text(traceback.format_exc())
-    finally:
-        if os.path.exists(temp_path):
-            os.remove(temp_path)
-        st.session_state.show_blur = False
-        st.rerun()
-
-# Display results if they exist
-if st.session_state.processed_results is not None:
-    results = st.session_state.processed_results
-    
-    # Create two columns for the uploaded image and edge detection result
-    result_col1, result_col2 = st.columns([1, 1])
-    
-    with result_col1:
-        st.subheader("Original Image")
-        st.image(st.session_state.uploaded_image, use_container_width=True)
-    
-    with result_col2:
-        st.subheader("Edge Detection Result")
-        st.image(results['final_output'], use_container_width=True)
-    
-    # Display intermediate results in a collapsible section
-    with st.expander("View Intermediate Results", expanded=False):
-        st.subheader("Intermediate Results")
-        cols = st.columns(3)
-        
-        with cols[0]:
-            st.write("Texture Map")
-            st.image(results['texture_map'], use_container_width=True)
-            
-            st.write("Texture Gradient")
-            st.image(results['texture_gradient'], use_container_width=True)
-        
-        with cols[1]:
-            st.write("Brightness Map")
-            st.image(results['brightness_map'], use_container_width=True)
-            
-            st.write("Brightness Gradient")
-            st.image(results['brightness_gradient'], use_container_width=True)
-        
-        with cols[2]:
-            st.write("Color Map")
-            st.image(results['color_map'], use_container_width=True)
-            
-            st.write("Color Gradient")
-            st.image(results['color_gradient'], use_container_width=True)
-
-    # Add a button to process another image
-    st.markdown("---")
-    if st.button("Process Another Image"):
+        st.session_state.error_message = f"An error occurred during image processing: {str(e)}"
+        # Reset states to allow user to try again
         st.session_state.processed_results = None
-        st.session_state.uploaded_image = None
-        st.session_state.show_blur = False
-        st.session_state.uploader_key += 1  # Reset uploader widget
+        st.session_state.has_processed = False
+        # Keep uploaded_image_data so the user does not have to re-upload if it was a processing error
+        
+    finally:
+        # cleanup the lock file
+        if os.path.exists(LOCK_FILE_PATH):
+            try:
+                os.remove(LOCK_FILE_PATH)
+            except Exception as e_lock: 
+                print(f"Error removing lock file {LOCK_FILE_PATH}: {e_lock}")
+
+        # Clean up the temporary file
+        if os.path.exists(temp_path):
+            try:
+                os.remove(temp_path)
+            except Exception as e_remove:
+                # Log to console
+                print(f"Error removing temporary file {temp_path}: {e_remove}") 
+        
+        st.session_state.show_blur = False # Hide overlay
+        st.rerun() # Rerun to update UI based on success/failure
+
+
+# --- Display Error if any ---
+if st.session_state.error_message and not st.session_state.has_processed: # Show error if processing failed or input failed
+    st.error(st.session_state.error_message)
+    # Offer a way to clear the error and try again
+    if st.button("Try Uploading Again"):
+        st.session_state.error_message = None
+        st.session_state.uploader_key += 1
+        st.session_state.uploaded_image_data = None
+        st.session_state.processed_results = None
         st.session_state.has_processed = False
         st.rerun()
 
-elif uploaded_file is None and not image_url:
-    st.info("Please upload an image to begin edge detection or paste a URL above.")
+
+# --- Display Results Section ---
+if st.session_state.has_processed and st.session_state.processed_results is not None:
+    results = st.session_state.processed_results
+    
+    st.markdown("<h2 class='section-header' style='text-align: center;'>Edge Detection Results</h2>", unsafe_allow_html=True)
+    
+    # Display Original and Final Output side-by-side
+    res_col1, res_col2 = st.columns(2)
+    with res_col1:
+        st.markdown("<h3 class='section-header'>Original Image</h3>", unsafe_allow_html=True)
+        # Display the initially uploaded image (PIL object)
+        st.image(st.session_state.uploaded_image_data, use_container_width=True) 
+    
+    with res_col2:
+        st.markdown("<h3 class='section-header'>Edge Detection (Pb-lite)</h3>", unsafe_allow_html=True)
+        st.image(results['final_output'], use_container_width=True)
+    
+    st.markdown("---")
+    
+    # Display intermediate results in a collapsible section
+    with st.expander("🔬 View Intermediate Results", expanded=False):
+        st.subheader("Intermediate Maps & Gradients")
+        
+        # Determine number of columns needed based on available results
+        # Max 3 items per row for better layout
+        intermediate_items = {
+            "Texture Map": results.get('texture_map'),
+            "Texture Gradient": results.get('texture_gradient'),
+            "Brightness Map": results.get('brightness_map'),
+            "Brightness Gradient": results.get('brightness_gradient'),
+            "Color Map": results.get('color_map'),
+            "Color Gradient": results.get('color_gradient'),
+            "Sobel Baseline": results.get('sobel_baseline'),
+            "Canny Baseline": results.get('canny_baseline')
+        }
+        
+        displayable_items = {k: v for k, v in intermediate_items.items() if v is not None}
+        
+        if displayable_items:
+            num_cols = min(3, len(displayable_items))
+            cols = st.columns(num_cols)
+            col_idx = 0
+            for title, img_data in displayable_items.items():
+                with cols[col_idx % num_cols]:
+                    st.markdown(f"**{title}**")
+                    st.image(img_data, use_container_width=True)
+                    col_idx += 1
+        else:
+            st.write("No intermediate results available.")
+
+    # Button to process another image
+    st.markdown("---")
+    if st.button("🔄 Process Another Image", use_container_width=True):
+        # Reset all relevant session state variables
+        st.session_state.processed_results = None
+        # Clear stored PIL image
+        st.session_state.uploaded_image_data = None 
+        st.session_state.show_blur = False
+        # Increment key to reset file_uploader
+        st.session_state.uploader_key += 1 
+        st.session_state.has_processed = False
+        # Clear any previous errors
+        st.session_state.error_message = None 
+        st.rerun()
+
+elif not st.session_state.uploaded_image_data and not st.session_state.has_processed and not st.session_state.error_message:
+    st.info("👋 Welcome! Please upload an image or provide a URL to begin edge detection.")
+
