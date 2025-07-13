@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Edge Detection App - Pb-lite Algorithm</title>
+    <meta name="description" content="Advanced edge detection using Pb-lite algorithm with real-time processing">
+    <link rel="stylesheet" href="/static/styles.css">
+</head>
+<body>
+    <!-- Main Application Container -->
+    <div class="app-container">
+        <!-- Header Section -->
+        <header class="app-header">
+            <div class="header-content">
+                <h1 class="app-title">
+                    <span class="title-icon">🔍</span>
+                    Edge Detection Studio
+                </h1>
+                <p class="app-subtitle">Professional edge detection using Pb-lite algorithm</p>
+            </div>
+        </header>
+
+        <!-- Main Content Area -->
+        <main class="main-content">
+            <!-- Upload Section -->
+            <section class="upload-section" id="uploadSection">
+                <div class="upload-container">
+                    <div class="upload-zone" id="uploadZone">
+                        <div class="upload-content">
+                            <div class="upload-icon">📁</div>
+                            <h3 class="upload-title">Drag & Drop Your Image</h3>
+                            <p class="upload-subtitle">or click to browse</p>
+                            <div class="upload-formats">
+                                Supports: JPG, PNG, GIF, BMP (Max 10MB)
+                            </div>
+                        </div>
+                        <input type="file" id="fileInput" accept="image/*" aria-label="Select image file">
+                    </div>
+                    
+                    <!-- Upload Progress -->
+                    <div class="progress-container" id="progressContainer">
+                        <div class="progress-bar">
+                            <div class="progress-fill" id="progressFill"></div>
+                        </div>
+                        <div class="progress-text" id="progressText">Uploading...</div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Processing Status Section -->
+            <section class="status-section" id="statusSection">
+                <div class="status-container">
+                    <div class="status-indicator" id="statusIndicator">
+                        <div class="spinner"></div>
+                    </div>
+                    <div class="status-content">
+                        <h3 class="status-title" id="statusTitle">Processing Image</h3>
+                        <p class="status-message" id="statusMessage">Applying Pb-lite edge detection algorithm...</p>
+                        <div class="status-details">
+                            <span class="status-item">Job ID: <span id="jobId">-</span></span>
+                            <span class="status-item">Status: <span id="jobStatus">pending</span></span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Results Section -->
+            <section class="results-section" id="resultsSection">
+                <div class="results-header">
+                    <h2 class="results-title">Edge Detection Results</h2>
+                    <div class="results-actions">
+                        <button class="btn btn-secondary" id="processAnotherBtn">
+                            Process Another Image
+                        </button>
+                        <button class="btn btn-primary" id="downloadBtn" disabled>
+                            <span class="btn-icon">⬇</span>
+                            Download Result
+                        </button>
+                    </div>
+                </div>
+                
+                <div class="image-comparison">
+                    <!-- Original Image -->
+                    <div class="image-panel">
+                        <div class="image-header">
+                            <h3 class="image-title">Original Image</h3>
+                            <div class="image-info" id="originalInfo">-</div>
+                        </div>
+                        <div class="image-container">
+                            <img id="originalImage" alt="Original image" class="comparison-image">
+                            <div class="image-overlay">
+                                <div class="image-placeholder">
+                                    <div class="placeholder-icon">🖼️</div>
+                                    <p>Original Image</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Processed Image -->
+                    <div class="image-panel">
+                        <div class="image-header">
+                            <h3 class="image-title">Edge Detection Result</h3>
+                            <div class="image-info" id="processedInfo">-</div>
+                        </div>
+                        <div class="image-container">
+                            <img id="processedImage" alt="Edge detection result" class="comparison-image">
+                            <div class="image-overlay">
+                                <div class="image-placeholder">
+                                    <div class="placeholder-icon">⚡</div>
+                                    <p>Edge Detection Result</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Error Section -->
+            <section class="error-section" id="errorSection">
+                <div class="error-container">
+                    <div class="error-icon">⚠️</div>
+                    <h3 class="error-title">Something went wrong</h3>
+                    <p class="error-message" id="errorMessage">Please try again or contact support if the problem persists.</p>
+                    <button class="btn btn-primary" id="retryBtn">Try Again</button>
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="app-footer">
+            <div class="footer-content">
+                <p>&copy; 2024 Edge Detection Studio. Powered by Pb-lite Algorithm.</p>
+                <div class="footer-links">
+                    <a href="#" class="footer-link">About</a>
+                    <a href="#" class="footer-link">Help</a>
+                    <a href="#" class="footer-link">GitHub</a>
+                </div>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div class="loading-overlay" id="loadingOverlay">
+        <div class="loading-content">
+            <div class="loading-spinner"></div>
+            <p class="loading-text">Initializing Edge Detection Studio...</p>
+        </div>
+    </div>
+
+    <!-- JavaScript -->
+    <script src="/static/script.js"></script>
+</body>
+</html> 
