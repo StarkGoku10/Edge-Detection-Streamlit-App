@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Input Debug Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        .upload-zone {
+            border: 2px dashed #ccc;
+            padding: 40px;
+            text-align: center;
+            cursor: pointer;
+            margin: 20px 0;
+        }
+        .upload-zone:hover {
+            background-color: #f5f5f5;
+        }
+        .log {
+            background-color: #f0f0f0;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            font-family: monospace;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .file-info {
+            background-color: #e8f5e8;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <h1>File Input Debug Test</h1>
+    <p>This is a simple test to debug the file input issue.</p>
+    
+    <div class="upload-zone" id="uploadZone">
+        <p>Click here to select a file</p>
+        <input type="file" id="fileInput" accept="image/*" style="display: none;">
+    </div>
+    
+    <div class="file-info" id="fileInfo" style="display: none;">
+        <h3>Selected File Info:</h3>
+        <div id="fileDetails"></div>
+    </div>
+    
+    <div class="log" id="log">
+        <strong>Debug Log:</strong><br>
+    </div>
+    
+    <script>
+        const log = document.getElementById('log');
+        const uploadZone = document.getElementById('uploadZone');
+        const fileInput = document.getElementById('fileInput');
+        const fileInfo = document.getElementById('fileInfo');
+        const fileDetails = document.getElementById('fileDetails');
+        
+        function addLog(message) {
+            const timestamp = new Date().toLocaleTimeString();
+            log.innerHTML += `[${timestamp}] ${message}<br>`;
+            log.scrollTop = log.scrollHeight;
+            console.log(message);
+        }
+        
+        addLog('Debug test initialized');
+        
+        uploadZone.addEventListener('click', (e) => {
+            addLog('Upload zone clicked');
+            fileInput.click();
+        });
+        
+        fileInput.addEventListener('change', (e) => {
+            addLog('File input change event triggered');
+            addLog(`Files selected: ${e.target.files.length}`);
+            
+            const file = e.target.files[0];
+            if (file) {
+                addLog(`File name: ${file.name}`);
+                addLog(`File type: ${file.type}`);
+                addLog(`File size: ${file.size} bytes`);
+                
+                fileDetails.innerHTML = `
+                    <strong>Name:</strong> ${file.name}<br>
+                    <strong>Type:</strong> ${file.type}<br>
+                    <strong>Size:</strong> ${file.size} bytes<br>
+                    <strong>Last Modified:</strong> ${new Date(file.lastModified).toLocaleString()}
+                `;
+                fileInfo.style.display = 'block';
+                
+                addLog('File successfully selected and processed');
+            } else {
+                addLog('No file selected');
+            }
+        });
+        
+        // Monitor for any errors
+        window.addEventListener('error', (e) => {
+            addLog(`ERROR: ${e.message} at ${e.filename}:${e.lineno}`);
+        });
+        
+        // Monitor for unhandled promise rejections
+        window.addEventListener('unhandledrejection', (e) => {
+            addLog(`UNHANDLED PROMISE REJECTION: ${e.reason}`);
+        });
+    </script>
+</body>
+</html> 
